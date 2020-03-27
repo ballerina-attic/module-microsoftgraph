@@ -13,16 +13,21 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-import ballerina/io;
-import ballerina/test;
-import ballerina/log;
-import ballerina/config;
-//
-//// Create Microsoft Graph Client configuration by reading from config file.
-MicrosoftGraphConfiguration msGraphConfig = {
-    baseUrl: config:getAsString("MS_EP_URL"),
-    bearerToken: config:getAsString("BEARER_TOKEN"),
 
+import ballerina/test;
+import ballerina/config;
+
+// Create Microsoft Graph Client configuration by reading from config file.
+MicrosoftGraphConfiguration msGraphConfig = {
+    baseUrl: config:getAsString("MS_BASE_URL"),
+    msInitialAccessToken: config:getAsString("MS_ACCESS_TOKEN"),
+    msClientID: config:getAsString("MS_CLIENT_ID"),
+    msClientSecret: config:getAsString("MS_CLIENT_SECRET"),
+    msRefreshToken: config:getAsString("MS_REFRESH_TOKEN"),
+    msRefreshURL: config:getAsString("MS_REFRESH_URL"),
+    trustStorePath: config:getAsString("TRUST_STORE_PATH"),
+    trustStorePassword: config:getAsString("TRUST_STORE_PASSWORD"),
+    bearerToken: config:getAsString("MS_ACCESS_TOKEN"),
     clientConfig: {
         accessToken: config:getAsString("MS_ACCESS_TOKEN"),
         refreshConfig: {
@@ -34,14 +39,15 @@ MicrosoftGraphConfiguration msGraphConfig = {
     }
 };
 
+OneDriveClient oneDriveClient = new(msGraphConfig);
+
 @test:Config {}
 function testGetURLofItem() {
-    OneDriveClient oneDriveClient = new(msGraphConfig);
+    Item|error item = oneDriveClient->getItemFromRoot(config:getAsString("WORK_BOOK_NAME") + ".xlsx");
 
-    string|error result = oneDriveClient->getItemURL("Book.xlsx");
-    if (result is string) {
-        io:println(result);
+    if (item is Item) {
+        test:assertEquals(item.name, config:getAsString("WORK_BOOK_NAME") + ".xlsx", msg = "Failed to get the Excel workbook.");
     } else {
-        log:printError("Error getting the WorkBook URL", err = result);
+        test:assertFail(msg = <string>item.detail()["message"]);
     }
 }

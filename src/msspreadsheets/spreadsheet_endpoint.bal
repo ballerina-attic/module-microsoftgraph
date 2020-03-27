@@ -15,306 +15,509 @@
 // under the License.
 
 import ballerina/http;
-import ballerina/io;
-import ballerina/config;
-import ballerina/oauth2;
 import ballerina/log;
+import ballerina/oauth2;
+import ballerina/lang.'int as ints;
+import ballerina/io;
 
-# Microsoft Spreadsheet Client Object
+# Microsoft Spreadsheet Client Object.
+# + msSpreadsheetClient - HTTP client endpoint for the spreadsheet API
+# + microsoftGraphConfig - Configurations for accessing spreadsheet API
 public type MSSpreadsheetClient client object {
     http:Client msSpreadsheetClient;
+    MicrosoftGraphConfiguration microsoftGraphConfig;
 
     public function __init(MicrosoftGraphConfiguration msGraphConfig) {
-        oauth2:OutboundOAuth2Provider oauth2Provider3 = new({
-            accessToken: config:getAsString("MS_INITIAL_ACCESS_TOKEN"),
+        self.microsoftGraphConfig = msGraphConfig;
+        oauth2:OutboundOAuth2Provider oauth2Provider3 = new ({
+            accessToken: msGraphConfig.msInitialAccessToken,
             refreshConfig: {
-                clientId: config:getAsString("MS_CLIENT_ID"),
-                clientSecret: config:getAsString("MS_CLIENT_SECRET"),
-                refreshToken: config:getAsString("MS_REFRESH_TOKEN"),
-                refreshUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                clientId: msGraphConfig.msClientID,
+                clientSecret: msGraphConfig.msClientSecret,
+                refreshToken: msGraphConfig.msRefreshToken,
+                refreshUrl: msGraphConfig.msRefreshURL,
                 clientConfig: {
                     secureSocket: {
                         trustStore: {
-                            path: config:getAsString("KEYSTORE_PATH"),
-                            password: config:getAsString("KEYSTORE_PASSWORD")
+                            path: msGraphConfig.trustStorePath,
+                            password: msGraphConfig.trustStorePassword
                         }
                     }
                 }
             }
         });
-        http:BearerAuthHandler oauth2Handler3 = new(oauth2Provider3);
+        http:BearerAuthHandler oauth2Handler3 = new (oauth2Provider3);
 
-        self.msSpreadsheetClient = new("https://graph.microsoft.com", {
+        self.msSpreadsheetClient = new (msGraphConfig.baseUrl, {
             auth: {
                 authHandler: oauth2Handler3
             },
             secureSocket: {
                 trustStore: {
-                            path: config:getAsString("KEYSTORE_PATH"),
-                            password: config:getAsString("KEYSTORE_PASSWORD")
+                            path: msGraphConfig.trustStorePath,
+                            password: msGraphConfig.trustStorePassword
                 }
             }
         });
     }
 
-    # Function to create a worksheet on a given workbook
-    # + workbookName - name of the workbook
-    # + worksheetName - name of the worksheet to be created
-    # + return - string with the identifier of the newly created worksheet. If not returns an error.
-    public remote function createWorksheet(string workbookName, string worksheetName) returns @tainted (string|error) {
-        string result = "";
-        http:Request request = new;
-        json payload = {"name" : worksheetName};
-        request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.msSpreadsheetClient->post("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets", request);
+    # Open a Workbook by the given name.
+    # + path - Path to the workbook file
+    # + workbookName - Name of the Workbook
+    # + return - A Workbook client object on success, else returns an error
+    public remote function openWorkbook(string path, string workbookName) returns Workbook|error {
+        Workbook workBook = new(self.microsoftGraphConfig, path, workbookName);
 
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == 201) {
-                json|error response = httpResponse.getJsonPayload();
-                if (response is map<json>) {
-                    json nameItem = response["id"];
-                    string createdTableID = nameItem.toString();
-                    result = createdTableID;
+        return workBook;
+    }
+};
 
-                    return result;
+# Workbook Client Object.
+# + workbookClient - HTTP client endpoint for the workbook
+# + properties - Workbook specific properties
+# + microsoftGraphConfig - Configurations for accessing spreadsheet API
+public type Workbook client object {
+    http:Client workbookClient;
+    WorkbookProperties properties = {"path":"", "workbookName":""};
+    MicrosoftGraphConfiguration microsoftGraphConfig;
+
+    public function __init(MicrosoftGraphConfiguration msGraphConfig, string path, string workbookName) {
+        self.microsoftGraphConfig = msGraphConfig;
+        self.properties = {"path":path, "workbookName":workbookName};
+
+        oauth2:OutboundOAuth2Provider oauth2Provider3 = new ({
+            accessToken: msGraphConfig.msInitialAccessToken,
+            refreshConfig: {
+                clientId: msGraphConfig.msClientID,
+                clientSecret: msGraphConfig.msClientSecret,
+                refreshToken: msGraphConfig.msRefreshToken,
+                refreshUrl: msGraphConfig.msRefreshURL,
+                clientConfig: {
+                    secureSocket: {
+                        trustStore: {
+                            path: msGraphConfig.trustStorePath,
+                            password: msGraphConfig.trustStorePassword
+                        }
+                    }
                 }
             }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
-        }
+        });
 
-        return result;
+        http:BearerAuthHandler oauth2Handler3 = new (oauth2Provider3);
+
+        self.workbookClient = new (msGraphConfig.baseUrl, {
+            auth: {
+                authHandler: oauth2Handler3
+            },
+            secureSocket: {
+                trustStore: {
+                            path: msGraphConfig.trustStorePath,
+                            password: msGraphConfig.trustStorePassword
+                }
+            }
+        });
     }
 
-    # Function to check whether a given table name exists in a workbook
-    # Here, on which worksheet the table exists does not matter. If worksheetName corresponds to any worksheet in the workbook
-    # and there is a table with the table name is located in the worksbook, this function returns true.
-    # + workbookName - name of the workbook where table exists
-    # + worksheetName - name of the worksheet where table exists
-    # + tableName - name of the table to check the existence.
-    # + return - boolean flag indicating whether table exists or not. If not returns an error.
-    public remote function tableExists(string workbookName, string worksheetName, string tableName) returns boolean|error {
-        boolean result = false;
+    # Get the properties of the workbook.
+    # + return - Properties of the Workbook
+    public function getProperties() returns WorkbookProperties {
+        return self.properties;
+    }
+
+    # Open a worksheet on this workbook.
+    # + worksheetName - name of the worksheet to be opened
+    # + return - A Worksheet client object on success, else returns an error
+    public remote function openWorksheet(string worksheetName) returns @tainted (Worksheet|error) {
         http:Request request = new;
-        http:Response|error httpResponse = self.msSpreadsheetClient->get("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName + "/tables/" + tableName, request);
+        http:Response|error httpResponse = self.workbookClient->get("/v1.0/me/drive/root:" + self.properties.path +
+        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + worksheetName, request);
+        int position = -1;
+        string sheetId = "";
 
         if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == 200) {
-                result = true;
+            if (httpResponse.statusCode == HTTP_STATUS_OK) {
+                json|error response = httpResponse.getJsonPayload();
+                io:println("|" + response.toString() + "|");
+                if (response is map<json>) {
+                    json sheetIdItem = response["id"];
+                    sheetId = sheetIdItem.toString();
+                    json positionItem = response["position"];
+
+                    int|error res1 = ints:fromString(positionItem.toString());
+                    if (res1 is int) {
+                        position = res1;
+                    } else {
+                        error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while " +
+                                                                            "getting the worksheet position.");
+                        return err;
+                    }
+
+                    Worksheet workSheet = new(self.microsoftGraphConfig, self.properties.path,
+                                            self.properties.workbookName, sheetId, worksheetName, position);
+                    return workSheet;
+                } else {
+                    error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while opening the worksheet.");
+                    return err;
+                }
+            } else {
+                error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while opening the worksheet.");
+                return err;
             }
         } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
+            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
+            return err;
+        }
+    }
+
+    # Create a worksheet on this workbook.
+    # + worksheetName - name of the worksheet to be created
+    # + return - A Worksheet client object on success, else returns an error
+    public remote function createWorksheet(string worksheetName) returns @tainted (Worksheet|error) {
+        http:Request request = new;
+        json payload = {"name": worksheetName};
+        request.setJsonPayload(payload);
+        http:Response|error httpResponse = self.workbookClient->post("/v1.0/me/drive/root:" +
+                    self.properties.path + self.properties.workbookName + ".xlsx:/workbook/worksheets", request);
+        int position = -1;
+        string sheetId = "";
+
+        if (httpResponse is http:Response) {
+            if (httpResponse.statusCode == HTTP_STATUS_CREATED) {
+                json|error response = httpResponse.getJsonPayload();
+                if (response is map<json>) {
+                    json sheetIdItem = response["id"];
+                    sheetId = sheetIdItem.toString();
+                    json positionItem = response["position"];
+
+                    int|error res1 = ints:fromString(positionItem.toString());
+                    if (res1 is int) {
+                        position = res1;
+                    } else {
+                        error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while " +
+                                                                            "getting the worksheet position.");
+                        return err;
+                    }
+
+                    Worksheet workSheet = new(self.microsoftGraphConfig, self.properties.path,
+                                            self.properties.workbookName, sheetId, worksheetName, position);
+                    return workSheet;
+                } else {
+                    error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while creating the worksheet.");
+                    return err;
+                }
+            } else {
+                error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while creating the worksheet.");
+                return err;
+            }
+        } else {
+            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
+            return err;
+        }
+    }
+
+    # Remove a worksheet from this workbook.
+    # + worksheetName - name of the worksheet to be removed
+    # + return - boolean true on success, else returns an error
+    public remote function removeWorksheet(string worksheetName) returns @tainted (boolean|error) {
+        boolean result = false;
+        http:Request request = new;
+        http:Response|error httpResponse = self.workbookClient->delete("/v1.0/me/drive/root:/" +
+            self.properties.workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName, request);
+
+        if (httpResponse is http:Response) {
+            if (httpResponse.statusCode == HTTP_STATUS_NO_CONTENT) {
+                result = true;
+            } else {
+                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while deleting the worksheet.");
+                return err;
+            }
+        } else {
+            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
             return err;
         }
 
         return result;
     }
+};
 
-    # Function to create a new table
-    # + workbookName - name of the workbook where the table should get created
-    # + worksheetName - name of the worksheet where the table should get created
+# Worksheet Client Object.
+# + worksheetClient - HTTP client endpoint for the worksheet
+# + properties - worksheet specific properties
+# + microsoftGraphConfig - Configurations for accessing spreadsheet API
+public type Worksheet client object {
+    http:Client worksheetClient;
+    WorksheetProperties properties = {"path":"", "workbookName":"", "sheetId":"",
+                                                "worksheetName":"", "position":0};
+    MicrosoftGraphConfiguration microsoftGraphConfig;
+
+    public function __init(MicrosoftGraphConfiguration msGraphConfig, string path, string workbookName, string sheetId,
+                            string worksheetName, int position) {
+        self.microsoftGraphConfig = msGraphConfig;
+        self.properties = {"path":path, "workbookName":workbookName, "sheetId":sheetId,
+                            "worksheetName":worksheetName, "position":position};
+        oauth2:OutboundOAuth2Provider oauth2Provider3 = new ({
+            accessToken: msGraphConfig.msInitialAccessToken,
+            refreshConfig: {
+                clientId: msGraphConfig.msClientID,
+                clientSecret: msGraphConfig.msClientSecret,
+                refreshToken: msGraphConfig.msRefreshToken,
+                refreshUrl: msGraphConfig.msRefreshURL,
+                clientConfig: {
+                    secureSocket: {
+                        trustStore: {
+                            path: msGraphConfig.trustStorePath,
+                            password: msGraphConfig.trustStorePassword
+                        }
+                    }
+                }
+            }
+        });
+
+        http:BearerAuthHandler oauth2Handler3 = new (oauth2Provider3);
+
+        self.worksheetClient = new (msGraphConfig.baseUrl, {
+            auth: {
+                authHandler: oauth2Handler3
+            },
+            secureSocket: {
+                trustStore: {
+                            path: msGraphConfig.trustStorePath,
+                            password: msGraphConfig.trustStorePassword
+                }
+            }
+        });
+    }
+
+    # Get the properties of the Worksheet.
+    # + return - Properties of the Worksheet
+    public function getProperties() returns WorksheetProperties {
+        return self.properties;
+    }
+
+    # Create a new Table on this Worksheet.
     # + tableName - name of the table to be created
     # + address - The location where the table should be created
-    # + return - a flag indicating whether the table creation was successful or not. If not returns an error.
-    public remote function createTable(string workbookName, string worksheetName, string tableName, string address) returns @tainted (boolean|error) {
-        boolean result = false;
+    # + return - A Table client object on success, else returns an error
+    public remote function createTable(string tableName, string address) returns @tainted (Table|error) {
         http:Request request = new;
-        json payload = {"name" : tableName, "address": address, "hasHeaders": false};
+        json payload = {"name": tableName, "address": address, "hasHeaders": false};
         request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.msSpreadsheetClient->post("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName + "/tables/add", request);
+        http:Response|error httpResponse = self.worksheetClient->post("/v1.0/me/drive/root:" + self.properties.path +
+        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName +
+        "/tables/add", request);
 
         if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == 201) {
-
+            if (httpResponse.statusCode == HTTP_STATUS_CREATED) {
                 json|error response = httpResponse.getJsonPayload();
                 if (response is map<json>) {
                     json nameItem = response["name"];
                     string createdTableName = nameItem.toString();
+                    json newTableID = response["id"];
+                    string tableID = newTableID.toString();
+
+                    Table resultsTable = <@untainted> new(self.microsoftGraphConfig, self.properties.path,
+                    self.properties.workbookName, self.properties.sheetId, self.properties.worksheetName, tableID,
+                    address, createdTableName);
+
                     if (createdTableName != tableName) {
-                        log:printInfo("Table created (" + createdTableName + ") carries different name than what was passed as the table name (" + tableName + "). Now patching the table with the correct table name.");
-                        
-                        boolean|error result2 = self->renameTable(workbookName, worksheetName, <@untainted > createdTableName, tableName);
-                        if (result2 is boolean) {
-                            result = result2;
+                        log:printInfo("Table created (" + createdTableName + ") carries different name than what " +
+                        "was passed as the table name (" + tableName + "). Now patching the table with the correct " +
+                        "table name.");
+                        boolean|error renameResult = resultsTable->renameTable(tableName);
+
+                        if (renameResult is boolean) {
+                            if (renameResult) {
+                                return resultsTable;
+                            } else {
+                                error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while renaming " +
+                                                                                    "the created table.");
+                                return err;
+                            }
+                        } else {
+                            error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while creating the table.");
+                            return err;
+                        }
+                    } else {
+                        return resultsTable;
+                    }
+                } else {
+                    error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while creating the table.");
+                    return err;
+                }
+            } else {
+                error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while creating the table.");
+                return err;
+            }
+        } else {
+            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
+            return err;
+        }
+    }
+
+    # Open a Table.
+    # + tableName - name of the table to be opened
+    # + return - A Table client object on success, else returns an error
+    public remote function openTable(string tableName) returns @tainted Table|error {
+        boolean result = false;
+        http:Request request = new;
+        http:Response|error httpResponse = self.worksheetClient->get("/v1.0/me/drive/root:" + self.properties.path +
+        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName + "/tables/" +
+        tableName, request);
+
+        if (httpResponse is http:Response) {
+            if (httpResponse.statusCode == HTTP_STATUS_OK) {
+                json|error response = httpResponse.getJsonPayload();
+                if (response is map<json>) {
+                    string identifier = response["id"].toString();
+                    string address = "";
+                    Table resultsTable = new(self.microsoftGraphConfig, self.properties.path, self.properties.workbookName,
+                    self.properties.sheetId, self.properties.worksheetName, identifier, address, tableName);
+                    return resultsTable;
+                } else {
+                    error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while inserting data into table.");
+                    return err;
+                }
+            } else {
+                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while inserting data into table.");
+                return err;
+            }
+        } else {
+            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
+            return err;
+        }
+    }
+};
+
+# Table Client Object.
+# + tableClient - HTTP client endpoint for the table
+# + properties - table specific properties
+public type Table client object {
+    http:Client tableClient;
+    TableProperties properties = {"path":"", "workbookName":"", "sheetId":"",
+                                                "worksheetName":"", "address":"", "tableID":"", "tableName":""};
+
+    public function __init(MicrosoftGraphConfiguration msGraphConfig, string path, string workbookName, string sheetId,
+                            string worksheetName, string tableID, string address, string tableName) {
+        self.properties = {"path":path, "workbookName":workbookName, "sheetId":sheetId,
+                            "worksheetName":worksheetName, "tableID":tableID, "address":address, "tableName":tableName};
+
+        oauth2:OutboundOAuth2Provider oauth2Provider3 = new ({
+            accessToken: msGraphConfig.msInitialAccessToken,
+            refreshConfig: {
+                clientId: msGraphConfig.msClientID,
+                clientSecret: msGraphConfig.msClientSecret,
+                refreshToken: msGraphConfig.msRefreshToken,
+                refreshUrl: msGraphConfig.msRefreshURL,
+                clientConfig: {
+                    secureSocket: {
+                        trustStore: {
+                            path: msGraphConfig.trustStorePath,
+                            password: msGraphConfig.trustStorePassword
                         }
                     }
                 }
+            }
+        });
 
-                result = true;
-            } else if (httpResponse.statusCode == 400) {
-                json|error response = httpResponse.getJsonPayload();
-                if (response is map<json>) {
-                    json errItem = response["error"];
+        http:BearerAuthHandler oauth2Handler3 = new (oauth2Provider3);
 
-                    if (errItem is map<json>) {
-                        error err = error(WORKSHEET_ERROR_CODE, message = errItem["message"].toString());
-
-                        return err;
-                    }
+        self.tableClient = new (msGraphConfig.baseUrl, {
+            auth: {
+                authHandler: oauth2Handler3
+            },
+            secureSocket: {
+                trustStore: {
+                            path: msGraphConfig.trustStorePath,
+                            password: msGraphConfig.trustStorePassword
                 }
             }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
-        }
-
-        return result;
+        });
     }
 
-    # Function to rename a table
-    # + workbookName - name of the workbook where the table exists
-    # + worksheetName - name of the worksheet where the table exists
-    # + oldTableName - name of the table to be renamed
-    # + newTableName - new name to be used with the table
-    # + return - a flag indicating whether the table creation was successful or not. If not returns an error.
-    public remote function renameTable(string workbookName, string worksheetName, string oldTableName, string newTableName) returns @tainted (boolean|error) {
-        boolean result = false;
-        http:Request request = new;
-        json payload = {"name" : newTableName};
-        request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.msSpreadsheetClient->patch("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName + "/tables/" + oldTableName, request);
-
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == 200) {
-                result = true;
-            }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
-        }
-
-        return result;
+    # Get the properties of the table.
+    # + return - Properties of the Table
+    public function getProperties() returns TableProperties {
+        return self.properties;
     }
 
-    # Function for changing a table's header
-    # + workbookName - name of the workbook where table exists
-    # + worksheetName - name of the worksheet where table exists
-    # + tableName - name of the table to be changed
-    # + tableColumnID - ID of the tableColumn to change
-    # + headerName - new name of the table header
-    # + return - a flag indicating whether the table creation was successful or not. If not returns an error.
-    public remote function setTableheader(string workbookName, string worksheetName, string tableName, int tableColumnID, string headerName) returns boolean|error {
-        boolean result = false;
-        http:Request request = new;
-        json payload = {"name" : headerName};
-        request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.msSpreadsheetClient->patch("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName + "/tables/" + tableName + "/columns/" + tableColumnID.toString(), request);
-
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == 200) {
-                result = true;
-            }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
-        }
-
-        return result;
-    }
-
-    # Function to insert data into a table
-    # + workbookName - name of the workbook where table exists
-    # + worksheetName - name of the worksheet where table exists
-    # + tableName - name of the table where the data will be inserted
+    # Insert data into the table.
     # + data - data to be inserted into the table
-    # + return - a flag indicating whether the table creation was successful or not. If not returns an error.
-    public remote function insertDataIntoTable(string workbookName, string worksheetName, string tableName, json data) returns boolean|error {
+    # + return - boolean true on success, else returns an error
+    public remote function insertDataIntoTable(json data) returns boolean|error {
         boolean result = false;
         http:Request request = new;
         json payload = data;
         request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.msSpreadsheetClient->post("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName + "/tables/" + tableName + "/rows/add", request);
+        http:Response|error httpResponse = self.tableClient->post("/v1.0/me/drive/root:" + self.properties.path +
+        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName + "/tables/" +
+        self.properties.tableName + "/rows/add", request);
 
         if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == 200) {
+            if (httpResponse.statusCode == HTTP_STATUS_CREATED) {
                 result = true;
-            }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
-        }
-
-         return result;
-    }
-
-    # Function to delete a worksheet
-    # + workbookName - name of the workbook where worksheet exists
-    # + worksheetName - name of the worksheet to be deleted
-    # + return - a flag indicating whether the worksheet deletion was successful or not. If not returns an error.
-    public remote function deleteWorksheet(string workbookName, string worksheetName) returns boolean|error {
-        boolean result = false;
-        http:Request request = new;
-        http:Response|error httpResponse = self.msSpreadsheetClient->delete("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName, request);
-
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == 204) {
-                result = true;
-            }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
-        }
-
-        return result;
-    }
-
-    # Function to check whether a worksheet exists or not
-    # + workbookName - name of the workbook where the worksheet exists
-    # + worksheetName - name of the worksheet
-    # + return - a flag indicating whether the worksheet exists or not. If not returns an error.
-    public remote function worksheetExists(string workbookName, string worksheetName) returns boolean|error {
-        boolean result = false;
-        http:Request request = new;
-        http:Response|error httpResponse = self.msSpreadsheetClient->get("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName, request);
-
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == 200) {
-                result = true;
-            }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
-        }
-
-        return result;
-    }
-
-    # Function to get the list of worksheet names in a given workbook
-    # + workbookName - name of the workbook from which the worksheet names list be be fecthed
-    # + return - an arry of worksheet names. If not returns an error.
-    public remote function getWorksheetNames(string workbookName) returns @tainted string[]|error {
-        http:Request request = new;
-        http:Response|error httpResponse = self.msSpreadsheetClient->get("/v1.0/me/drive/root:/" + workbookName  + ".xlsx:/workbook/worksheets", request);
-
-        string[] result = [];
-
-        if (httpResponse is http:Response) {
-            var msg = httpResponse.getJsonPayload();
-
-            if (msg is json) {
-                if (msg is map<json>) {
-                    if (msg["error"] == null) {
-                        json[] arr = <json[]> msg["value"];
-                        int i = 0;
-                        foreach (json item in arr) {
-                            map<json> member2 = <map<json>> item;
-                            result[i] = member2["name"].toJsonString();
-                            i += 1;
-                            io:println("Name: " + member2["name"].toJsonString());
-                        }
-                    } else {
-                        io:println("Error ocurred.");
-                        io:println(msg.toJsonString());
-                    }
-                } else {
-                    io:println("Not JSON");
-                }
             } else {
-                io:println("Invalid payload received:" , msg.reason());
+                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while inserting data into table.");
+                return err;
             }
         } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
+            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
+            return err;
+        }
+
+        return result;
+    }
+
+    # Rename the table.
+    # + newTableName - new name to be used with the table
+    # + return - boolean true on success, else returns an error
+    public remote function renameTable(string newTableName) returns @tainted (boolean|error) {
+        boolean result = false;
+        http:Request request = new;
+        json payload = {"name": newTableName};
+        request.setJsonPayload(payload);
+        http:Response|error httpResponse = self.tableClient->patch("/v1.0/me/drive/root:" + self.properties.path +
+        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName +
+        "/tables/" + self.properties.tableName, request);
+
+        if (httpResponse is http:Response) {
+            if (httpResponse.statusCode == HTTP_STATUS_OK) {
+                self.properties.tableName = newTableName;
+                result = true;
+            } else {
+                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while renaming the table.");
+                return err;
+            }
+        } else {
+            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
+            return err;
+        }
+
+        return result;
+    }
+
+    # Set a table's header.
+    # + tableName - name of the table to be changed
+    # + columnID - ID of the tableColumn to change
+    # + headerName - new name of the table header
+    # + return - boolean true on success, else returns an error
+    public remote function setTableHeader(string tableName, int columnID, string headerName) returns boolean|error {
+        boolean result = false;
+        http:Request request = new;
+        json payload = {"name": headerName};
+        request.setJsonPayload(payload);
+        http:Response|error httpResponse = self.tableClient->patch("/v1.0/me/drive/root:" + self.properties.path +
+        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName + "/tables/" +
+        tableName + "/columns/" + columnID.toString(), request);
+
+        if (httpResponse is http:Response) {
+            if (httpResponse.statusCode == HTTP_STATUS_OK) {
+                result = true;
+            } else {
+                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while setting the table header.");
+                return err;
+            }
+        } else {
+            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
             return err;
         }
 
@@ -324,12 +527,24 @@ public type MSSpreadsheetClient client object {
 
 # Microsoft Graph client configuration.
 # + baseUrl - The Microsoft Graph endpoint URL
-# + bearerToken - Token for bearer authentication
+# + msInitialAccessToken - Initial access token
+# + msClientID - Microsoft client identifier
+# + msClientSecret - client secret
+# + msRefreshToken - refresh token
+# + msRefreshURL - refresh URL
+# + trustStorePath - trust store path
+# + trustStorePassword - trust store password
+# + bearerToken - bearer token
 # + clientConfig - OAuth2 direct token configuration
-# + secureSocketConfig - HTTPS secure socket configuration
 public type MicrosoftGraphConfiguration record {
     string baseUrl;
+    string msInitialAccessToken;
+    string msClientID;
+    string msClientSecret;
+    string msRefreshToken;
+    string msRefreshURL;
+    string trustStorePath;
+    string trustStorePassword;
     string bearerToken;
     oauth2:DirectTokenConfig clientConfig;
-    http:ClientSecureSocket secureSocketConfig?;
 };

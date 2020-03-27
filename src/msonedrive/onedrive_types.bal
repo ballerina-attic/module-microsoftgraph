@@ -14,4 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//import ballerina/lang.'error as errs;
+# OneDrive properties.
+public type OneDriveProperties record {|
+
+|};
