@@ -17,7 +17,7 @@
 import ballerina/test;
 import ballerina/config;
 
-// Create Microsoft Graph Client configuration by reading from config file.
+// Create the Microsoft Graph Client configuration by reading the config file.
 MicrosoftGraphConfiguration msGraphConfig = {
     baseUrl: config:getAsString("MS_BASE_URL"),
     msInitialAccessToken: config:getAsString("MS_ACCESS_TOKEN"),
@@ -49,7 +49,7 @@ function testOpenWorkBook() {
 
     if (wb is Workbook) {
         WorkbookProperties properties = wb.getProperties();
-        test:assertEquals(properties.workbookName, config:getAsString("WORK_BOOK_NAME"), msg = "Failed to open workbook");
+        test:assertEquals(properties.workbookName, config:getAsString("WORK_BOOK_NAME"), msg = "Failed to open the workbook.");
         workBook = wb;
     } else {
         test:assertFail(msg = <string>wb.detail()["message"]);
@@ -64,7 +64,7 @@ function testCreateSpreadsheet() {
 
     if (ws is Worksheet) {
         test:assertEquals(ws.getProperties().worksheetName, config:getAsString("WORK_SHEET_NAME"),
-        msg = "Failed to create worksheet");
+        msg = "Failed to create the worksheet.");
         worksheet = ws;
     } else {
         test:assertFail(msg = <string>ws.detail()["message"]);
@@ -78,7 +78,7 @@ function testCreateTable() {
     Table|error tbl = worksheet->createTable(config:getAsString("TABLE_NAME"), "A1:D1");
 
     if (tbl is Table) {
-        test:assertEquals(tbl.getProperties().tableName, config:getAsString("TABLE_NAME"), msg = "Failed to create Table");
+        test:assertEquals(tbl.getProperties().tableName, config:getAsString("TABLE_NAME"), msg = "Failed to create the table.");
     } else {
         test:assertFail(msg = <string>tbl.detail()["message"]);
     }
@@ -88,10 +88,10 @@ function testCreateTable() {
     dependsOn: ["testCreateTable"]
 }
 function testRemoveSpreadsheet() {
-    boolean|error result = workBook->removeWorksheet(config:getAsString("WORK_SHEET_NAME"));
+    error? result = workBook->removeWorksheet(config:getAsString("WORK_SHEET_NAME"));
 
-    if (result is boolean) {
-        test:assertEquals(result, true, msg = "Failed to delete worksheet");
+    if (result is ()) {
+        test:assertEquals(result, (), msg = "Failed to delete worksheet");
     } else {
         test:assertFail(msg = <string>result.detail()["message"]);
     }

@@ -19,7 +19,7 @@ import ballerina/stringutils;
 import ballerina/oauth2;
 
 # Microsoft OneDrive Client Object.
-# + oneDriveClient - HTTP client endpoint for accessing the OneDrive
+# + oneDriveClient - HTTP client endpoint for accessing OneDrive
 public type OneDriveClient client object {
     http:Client oneDriveClient;
 
@@ -56,99 +56,142 @@ public type OneDriveClient client object {
         });
     }
 
-    # Get an item located at the root level of the OneDrive.
+    # Get an item located at the root level of OneDrive.
     # + itemName - name of the item (e.g., Workbook) to be fetched
-    # + return - item from the root on success, else returns an error
+    # + return - item from the root if fetching is successful or else returns an error
     public remote function getItemFromRoot(string itemName) returns @tainted (Item|error) {
+        //Make a GET request and collect the information about the items on the root
         http:Request request = new;
-        http:Response|error httpResponse = self.oneDriveClient->get("/v1.0/me/drive/root/children", request);
+        http:Response|error response = self.oneDriveClient->get("/v1.0/me/drive/root/children", request);
         Item resultItem = new();
 
-        if (httpResponse is http:Response) {
-            json|error payload = httpResponse.getJsonPayload();
-            
-            if (payload is map<json>) {
-                json value = payload["value"];
-                if (value is json[]) {
-                    foreach var item in value {
-                        if (item is map<json>){
-                            if (stringutils:equalsIgnoreCase(item["name"].toString(), itemName)){
-                                resultItem.id = item["id"].toString();
-                                resultItem.name = item["name"].toString();
-                                resultItem.webUrl = item["webUrl"].toString();
-                                return resultItem;
-                            }
-                        } else {
-                            error err = error(ONEDRIVE_ERROR_CODE, message = "Error occurred while getting an item " +
-                                                                             "from the root.");
-                            return err;
-                        }
-                    }
+        if response is error {
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+                                        errorCode = HTTP_ERROR, cause = response);
+            return httpError;
+        }
 
+        http:Response httpResponse = <http:Response> response;
+
+        //If the request was successful it will return the details in a JSON response
+        json|error responseJson = httpResponse.getJsonPayload();
+
+        if !(responseJson is map<json>) {
+            typedesc<any|error> typeOfResponse = typeof responseJson;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                message = "Invalid response; expected a `map<json>` found " +  typeOfResponse.toString(), 
+                errorCode = TYPE_CONVERSION_ERROR);
+
+            return typeError;
+        }
+
+        map<json> responsePayload = <map<json>> responseJson;
+
+        json|error value = responsePayload.value;
+
+        if !(value is json[]) {
+            typedesc<any|error> typeOfValue = typeof value;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                message = "Invalid value; expected a `json[]` found " +  typeOfValue.toString(), 
+                errorCode = TYPE_CONVERSION_ERROR);
+
+            return typeError;
+        }
+
+        json[] itemsArray = <json[]> value;
+
+        //Iterate through the array of items until the specified item was found
+        foreach var item in itemsArray {
+            if (item is map<json>){
+                if (stringutils:equalsIgnoreCase(item["name"].toString(), itemName)){
+                    resultItem.id = item["id"].toString();
+                    resultItem.name = item["name"].toString();
+                    resultItem.webUrl = item["webUrl"].toString();
                     return resultItem;
-                } else {
-                    error err = error(ONEDRIVE_ERROR_CODE, message = "Error occurred while getting an item from the root.");
-                    return err;    
                 }
             } else {
-                error err = error(ONEDRIVE_ERROR_CODE, message = "Error occurred while getting an item from the root.");
-                return err;
+                typedesc<any|error> typeOfResponse = typeof responseJson;
+                TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid response; expected a `map<json>` found " +  typeOfResponse.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+
+                return typeError;
             }
-        } else {
-            error err = error(ONEDRIVE_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
         }
+
+        return resultItem;
     }
 
-    # Get an item located at a non-root level location of the OneDrive.
-    # + path - Path to the item (e.g., /foo/bar)
+    # Get an item located at a non-root level location of OneDrive.
+    # + path - path to the item (e.g., /foo/bar)
     # + itemName - name of the item (e.g., Workbook) to be fetched
-    # + return - item from the non-root on success, else returns an error
+    # + return - item from the non-root if fetching is successful or else returns an error
     public remote function getItemFromNonRoot(string path, string itemName) returns @tainted (Item|error) {
+        //Make a GET request and collect the information about the items from the non-root location
         http:Request request = new;
-        http:Response|error httpResponse = self.oneDriveClient->get("https://graph.microsoft.com/v1.0/me/drive/root:" +
+        http:Response|error response = self.oneDriveClient->get("https://graph.microsoft.com/v1.0/me/drive/root:" +
                                             path + ":/children", request);
         Item resultItem = new();
 
-        if (httpResponse is http:Response) {
-            json|error payload = httpResponse.getJsonPayload();
+        if response is error {
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+                errorCode = HTTP_ERROR, cause = response);
+            return httpError;
+        }
 
-            if (payload is map<json>) {
-                json value = payload["value"];
-                if (value is json[]) {
-                    foreach var item in value {
-                        if (item is map<json>){
-                            if (stringutils:equalsIgnoreCase(item["name"].toString(), itemName)){
-                                resultItem.id = item["id"].toString();
-                                resultItem.name = item["name"].toString();
-                                resultItem.webUrl = item["webUrl"].toString();
-                                return resultItem;
-                            }
-                        } else {
-                            error err = error(ONEDRIVE_ERROR_CODE, message = "Error occurred while getting an item " +
-                                                                             "from non-root.");
-                            return err;
-                        }
-                    }
+        http:Response httpResponse = <http:Response> response;
 
+        //If the request was successful it will return the details in a JSON response
+        json|error responseJson = httpResponse.getJsonPayload();
+
+        if !(responseJson is map<json>) {
+            typedesc<any|error> typeOfResponse = typeof responseJson;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                message = "Invalid response; expected a `map<json>` found " +  typeOfResponse.toString(), 
+                errorCode = TYPE_CONVERSION_ERROR);
+
+            return typeError;
+        }
+
+        map<json> responsePayload = <map<json>> responseJson;
+
+        json|error value = responsePayload.value;
+
+        if !(value is json[]) {
+            typedesc<any|error> typeOfValue = typeof value;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                message = "Invalid value; expected a `json[]` found " +  typeOfValue.toString(), 
+                errorCode = TYPE_CONVERSION_ERROR);
+
+            return typeError;
+        }
+
+        json[] itemsArray = <json[]> value;
+
+        //Iterate through the array of items until the specified item was found
+        foreach var item in itemsArray {
+            if (item is map<json>){
+                if (stringutils:equalsIgnoreCase(item["name"].toString(), itemName)){
+                    resultItem.id = item["id"].toString();
+                    resultItem.name = item["name"].toString();
+                    resultItem.webUrl = item["webUrl"].toString();
                     return resultItem;
-                } else {
-                    error err = error(ONEDRIVE_ERROR_CODE, message = "Error occurred while getting an item " +
-                                                                     "from non-root.");
-                    return err;
                 }
             } else {
-                error err = error(ONEDRIVE_ERROR_CODE, message = "Error occurred while getting an item from non-root.");
-                return err;
+                typedesc<any|error> typeOfItem = typeof item;
+                TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid response; expected a `map<json>` found " +  typeOfItem.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+
+                return typeError;
             }
-        } else {
-            error err = error(ONEDRIVE_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API");
-            return err;
         }
+
+        return resultItem;
     }
 };
 
-# Client Object which represents an item on Microsoft OneDrive.
+# Client Object, which represents an item on Microsoft OneDrive.
 # + id - unique identifier for the item
 # + name - name of the item
 # + webUrl - unique URL for accessing the item via a web browser
@@ -159,8 +202,8 @@ public type Item client object {
 };
 
 # Microsoft Graph client configuration.
-# + baseUrl - The Microsoft Graph endpoint URL
-# + msInitialAccessToken - Initial access token
+# + baseUrl - the Microsoft Graph endpoint URL
+# + msInitialAccessToken - initial access token
 # + msClientID - Microsoft client identifier
 # + msClientSecret - client secret
 # + msRefreshToken - refresh token

@@ -14,13 +14,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//HTTP Status Codes
-const int HTTP_STATUS_OK = 200;
-const int HTTP_STATUS_CREATED = 201;
-const int HTTP_STATUS_NO_CONTENT = 204;
-
-//API urls
+//URLs of the API.
 const string BASE_URL = "https://graph.microsoft.com/v1.0/me/drive/root";
-
-// Error Codes
-const string WORKSHEET_ERROR_CODE = "(wso2/msspreadsheets)WorksheetError";

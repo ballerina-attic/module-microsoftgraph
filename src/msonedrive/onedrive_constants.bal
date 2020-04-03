@@ -14,8 +14,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//API urls
+//The URLs of the API.
 const string BASE_URL = "https://graph.microsoft.com/v1.0/me/drive/root";
-
-// Error Codes
-const string ONEDRIVE_ERROR_CODE = "(wso2/msonedrive)OneDriveError";

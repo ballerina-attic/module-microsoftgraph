@@ -17,7 +17,7 @@
 import ballerina/test;
 import ballerina/config;
 
-// Create Microsoft Graph Client configuration by reading from config file.
+// Create the Microsoft Graph Client configuration by reading the config file.
 MicrosoftGraphConfiguration msGraphConfig = {
     baseUrl: config:getAsString("MS_BASE_URL"),
     msInitialAccessToken: config:getAsString("MS_ACCESS_TOKEN"),

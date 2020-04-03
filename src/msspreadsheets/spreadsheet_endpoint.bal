@@ -17,8 +17,6 @@
 import ballerina/http;
 import ballerina/log;
 import ballerina/oauth2;
-import ballerina/lang.'int as ints;
-import ballerina/io;
 
 # Microsoft Spreadsheet Client Object.
 # + msSpreadsheetClient - HTTP client endpoint for the spreadsheet API
@@ -129,114 +127,155 @@ public type Workbook client object {
     # + return - A Worksheet client object on success, else returns an error
     public remote function openWorksheet(string worksheetName) returns @tainted (Worksheet|error) {
         http:Request request = new;
-        http:Response|error httpResponse = self.workbookClient->get("/v1.0/me/drive/root:" + self.properties.path +
-        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + worksheetName, request);
-        int position = -1;
-        string sheetId = "";
+        http:Response|error response = self.workbookClient->get("/v1.0/me/drive/root:" + self.properties.path +
+                            self.properties.workbookName + ".xlsx:/workbook/worksheets/" + worksheetName, request);
 
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == HTTP_STATUS_OK) {
-                json|error response = httpResponse.getJsonPayload();
-                io:println("|" + response.toString() + "|");
-                if (response is map<json>) {
-                    json sheetIdItem = response["id"];
-                    sheetId = sheetIdItem.toString();
-                    json positionItem = response["position"];
-
-                    int|error res1 = ints:fromString(positionItem.toString());
-                    if (res1 is int) {
-                        position = res1;
-                    } else {
-                        error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while " +
-                                                                            "getting the worksheet position.");
-                        return err;
-                    }
-
-                    Worksheet workSheet = new(self.microsoftGraphConfig, self.properties.path,
-                                            self.properties.workbookName, sheetId, worksheetName, position);
-                    return workSheet;
-                } else {
-                    error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while opening the worksheet.");
-                    return err;
-                }
-            } else {
-                error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while opening the worksheet.");
-                return err;
-            }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
-            return err;
+        if response is error {
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+                                        errorCode = HTTP_ERROR, cause = response);
+            return httpError;
         }
+
+        http:Response httpResponse = <http:Response> response;
+
+        if httpResponse.statusCode != http:STATUS_CREATED {
+            HttpResponseHandlingError httpResponseHandlingError = error(HTTP_RESPONSE_HANDLING_ERROR,
+                message = "Error occurred while opening the worksheet.", errorCode = HTTP_RESPONSE_HANDLING_ERROR);
+            return httpResponseHandlingError;
+        }
+
+        //If the worksheet is available we will get a JSON response with the worksheet's information
+        json|error responseJson = httpResponse.getJsonPayload();
+
+        if !(responseJson is map<json>) {
+            typedesc<any|error> typeOfRespone = typeof responseJson;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid identifier; expected a `map<json>` found " +  typeOfRespone.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        map<json> payload = <map<json>> responseJson;
+    
+        json|error identifier = payload.id;
+
+        if !(identifier is string) {
+            typedesc<any|error> typeOfIdentifier = typeof identifier;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid identifier; expected a `string` found " +  typeOfIdentifier.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        string sheetId = <string> identifier;
+
+        json|error sheetPosition = payload.position;
+
+        if !(sheetPosition is int) {
+            typedesc<any|error> typeOfPosition = typeof sheetPosition;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid sheet position; expected a `int` found " +  typeOfPosition.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        int position = <int> sheetPosition;
+        
+        //Populate a new worksheet object using the information from the properties as well as from the received JSON object
+        Worksheet workSheet = new(self.microsoftGraphConfig, self.properties.path,
+                                self.properties.workbookName, sheetId, worksheetName, position);
+        return workSheet;
     }
 
     # Create a worksheet on this workbook.
     # + worksheetName - name of the worksheet to be created
     # + return - A Worksheet client object on success, else returns an error
     public remote function createWorksheet(string worksheetName) returns @tainted (Worksheet|error) {
+        //Make a POST request and create the worksheet
         http:Request request = new;
         json payload = {"name": worksheetName};
         request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.workbookClient->post("/v1.0/me/drive/root:" +
+        http:Response|error response = self.workbookClient->post("/v1.0/me/drive/root:" +
                     self.properties.path + self.properties.workbookName + ".xlsx:/workbook/worksheets", request);
-        int position = -1;
-        string sheetId = "";
 
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == HTTP_STATUS_CREATED) {
-                json|error response = httpResponse.getJsonPayload();
-                if (response is map<json>) {
-                    json sheetIdItem = response["id"];
-                    sheetId = sheetIdItem.toString();
-                    json positionItem = response["position"];
-
-                    int|error res1 = ints:fromString(positionItem.toString());
-                    if (res1 is int) {
-                        position = res1;
-                    } else {
-                        error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while " +
-                                                                            "getting the worksheet position.");
-                        return err;
-                    }
-
-                    Worksheet workSheet = new(self.microsoftGraphConfig, self.properties.path,
-                                            self.properties.workbookName, sheetId, worksheetName, position);
-                    return workSheet;
-                } else {
-                    error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while creating the worksheet.");
-                    return err;
-                }
-            } else {
-                error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while creating the worksheet.");
-                return err;
-            }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
-            return err;
+        if response is error {
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+                                        errorCode = HTTP_ERROR, cause = response);
+            return httpError;
         }
+
+        http:Response httpResponse = <http:Response> response;
+
+        if httpResponse.statusCode != http:STATUS_CREATED {
+            HttpResponseHandlingError httpResponseHandlingError = error(HTTP_RESPONSE_HANDLING_ERROR,
+                message = "Error occurred while creating the worksheet.", errorCode = HTTP_RESPONSE_HANDLING_ERROR);
+            return httpResponseHandlingError;
+        }
+
+        //If the worksheet was created we will get a JSON response with the newly created worksheet's information
+        json|error responseJson = httpResponse.getJsonPayload();
+
+        if !(responseJson is map<json>) {
+            typedesc<any|error> typeOfRespone = typeof responseJson;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid response; expected a `map<json>` found " +  typeOfRespone.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        map<json> responsePayload = <map<json>> responseJson;
+    
+        json|error identifier = responsePayload.id;
+
+        if !(identifier is string) {
+            typedesc<any|error> typeOfIdentifier = typeof identifier;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid identifier; expected a `string` found " +  typeOfIdentifier.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        string sheetId = <string> identifier;
+
+        json|error sheetPosition = responsePayload.position;
+
+        if !(sheetPosition is int) {
+            typedesc<any|error> typeOfPosition = typeof sheetPosition;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid sheet position; expected an `int` found " +  typeOfPosition.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        int position = <int> sheetPosition;
+        
+        //Populate a new worksheet object using the information from the properties as well as from the received JSON object
+        Worksheet workSheet = new(self.microsoftGraphConfig, self.properties.path,
+                                self.properties.workbookName, sheetId, worksheetName, position);
+        return workSheet;
     }
 
     # Remove a worksheet from this workbook.
     # + worksheetName - name of the worksheet to be removed
     # + return - boolean true on success, else returns an error
-    public remote function removeWorksheet(string worksheetName) returns @tainted (boolean|error) {
-        boolean result = false;
+    public remote function removeWorksheet(string worksheetName) returns @tainted error? {
         http:Request request = new;
         http:Response|error httpResponse = self.workbookClient->delete("/v1.0/me/drive/root:/" +
             self.properties.workbookName  + ".xlsx:/workbook/worksheets/" + worksheetName, request);
 
         if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == HTTP_STATUS_NO_CONTENT) {
-                result = true;
+            if (httpResponse.statusCode == http:STATUS_NO_CONTENT) {
+                return ();
             } else {
-                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while deleting the worksheet.");
-                return err;
+                HttpResponseHandlingError httpResponseHandlingError = error(HTTP_RESPONSE_HANDLING_ERROR,
+                message = "Error occurred while deleting the worksheet.", errorCode = HTTP_RESPONSE_HANDLING_ERROR);
+                return httpResponseHandlingError;
             }
         } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
-            return err;
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+            errorCode = HTTP_ERROR, cause = httpResponse);
+            return httpError;
         }
-
-        return result;
     }
 };
 
@@ -246,15 +285,19 @@ public type Workbook client object {
 # + microsoftGraphConfig - Configurations for accessing spreadsheet API
 public type Worksheet client object {
     http:Client worksheetClient;
-    WorksheetProperties properties = {"path":"", "workbookName":"", "sheetId":"",
-                                                "worksheetName":"", "position":0};
+    WorksheetProperties properties;
     MicrosoftGraphConfiguration microsoftGraphConfig;
 
     public function __init(MicrosoftGraphConfiguration msGraphConfig, string path, string workbookName, string sheetId,
                             string worksheetName, int position) {
         self.microsoftGraphConfig = msGraphConfig;
-        self.properties = {"path":path, "workbookName":workbookName, "sheetId":sheetId,
-                            "worksheetName":worksheetName, "position":position};
+        self.properties = {
+            path: path, 
+            workbookName: workbookName,
+            sheetId: sheetId,
+            worksheetName: worksheetName,
+            position: position
+        };
         oauth2:OutboundOAuth2Provider oauth2Provider3 = new ({
             accessToken: msGraphConfig.msInitialAccessToken,
             refreshConfig: {
@@ -299,58 +342,84 @@ public type Worksheet client object {
     # + address - The location where the table should be created
     # + return - A Table client object on success, else returns an error
     public remote function createTable(string tableName, string address) returns @tainted (Table|error) {
+        //Make a POST request and create the table
         http:Request request = new;
-        json payload = {"name": tableName, "address": address, "hasHeaders": false};
-        request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.worksheetClient->post("/v1.0/me/drive/root:" + self.properties.path +
-        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName +
-        "/tables/add", request);
+        request.setJsonPayload({"name": tableName, "address": address, "hasHeaders": false});
+        http:Response|error response = self.worksheetClient->post(<@untainted> ("/v1.0/me/drive/root:" + self.properties.path +
+                        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName +
+                        "/tables/add"), request);
 
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == HTTP_STATUS_CREATED) {
-                json|error response = httpResponse.getJsonPayload();
-                if (response is map<json>) {
-                    json nameItem = response["name"];
-                    string createdTableName = nameItem.toString();
-                    json newTableID = response["id"];
-                    string tableID = newTableID.toString();
+        if response is error {
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+                                        errorCode = HTTP_ERROR, cause = response);
+            return httpError;
+        }
 
-                    Table resultsTable = <@untainted> new(self.microsoftGraphConfig, self.properties.path,
-                    self.properties.workbookName, self.properties.sheetId, self.properties.worksheetName, tableID,
-                    address, createdTableName);
+        http:Response httpResponse = <http:Response> response;
 
-                    if (createdTableName != tableName) {
-                        log:printInfo("Table created (" + createdTableName + ") carries different name than what " +
-                        "was passed as the table name (" + tableName + "). Now patching the table with the correct " +
-                        "table name.");
-                        boolean|error renameResult = resultsTable->renameTable(tableName);
+        if httpResponse.statusCode != http:STATUS_CREATED {
+            HttpResponseHandlingError httpResponseHandlingError = error(HTTP_RESPONSE_HANDLING_ERROR,
+                message = "Error occurred while creating the table.", errorCode = HTTP_RESPONSE_HANDLING_ERROR);
+            return httpResponseHandlingError;
+        }
 
-                        if (renameResult is boolean) {
-                            if (renameResult) {
-                                return resultsTable;
-                            } else {
-                                error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while renaming " +
-                                                                                    "the created table.");
-                                return err;
-                            }
-                        } else {
-                            error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while creating the table.");
-                            return err;
-                        }
-                    } else {
-                        return resultsTable;
-                    }
-                } else {
-                    error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while creating the table.");
-                    return err;
-                }
-            } else {
-                error err = error(WORKSHEET_ERROR_CODE, message = "Error ocurred while creating the table.");
-                return err;
-            }
+        //If the table was created we will get a JSON response with the newly created table's information
+        json|error responseJson = httpResponse.getJsonPayload();
+
+        if !(responseJson is map<json>) {
+            typedesc<any|error> typeOfRespone = typeof responseJson;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid response; expected a `map<json>` found " +  typeOfRespone.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        map<json> payload = <map<json>> responseJson;
+    
+        json|error nameItem = payload.name;
+
+        if !(nameItem is string) {
+            typedesc<any|error> typeOfNameItem = typeof nameItem;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid name; expected a `string` found " +  typeOfNameItem.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        string createdTableName = <string> nameItem;
+
+        json|error newTableID = payload.id;
+    
+        if !(newTableID is string) {
+            typedesc<any|error> typeOfTableId = typeof newTableID;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid table ID; expected a `string` found " +  typeOfTableId.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        //Populate a new Table object using the information from the properties as well as from the received JSON object
+        Table resultsTable = <@untainted> new (self.microsoftGraphConfig, self.properties.path,
+                                            self.properties.workbookName, self.properties.sheetId, 
+                                            self.properties.worksheetName, newTableID.toString(), address, 
+                                            createdTableName);
+
+        if (createdTableName == tableName) {
+            return resultsTable;
+        }
+
+        log:printInfo("Table created (" + createdTableName + ") carries different name than what " +
+                "was passed as the table name (" + tableName + "). Now patching the table with the correct " +
+                "table name.");
+
+        error? renameResult = resultsTable->renameTable(tableName);
+
+        if (renameResult is ()) {
+            return resultsTable;
         } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
-            return err;
+            TableError tableError = error(TABLE_ERROR_CODE, message = "Error ocurred while renaming the created table.", 
+                        errorCode = TABLE_ERROR_CODE, cause = renameResult);
+            return tableError;
         }
     }
 
@@ -358,33 +427,58 @@ public type Worksheet client object {
     # + tableName - name of the table to be opened
     # + return - A Table client object on success, else returns an error
     public remote function openTable(string tableName) returns @tainted Table|error {
-        boolean result = false;
+        //Make a GET request and retrieve the table information
         http:Request request = new;
-        http:Response|error httpResponse = self.worksheetClient->get("/v1.0/me/drive/root:" + self.properties.path +
-        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName + "/tables/" +
-        tableName, request);
+        http:Response|error response = self.worksheetClient->get(<@untainted> ("/v1.0/me/drive/root:" + self.properties.path +
+                                            self.properties.workbookName + ".xlsx:/workbook/worksheets/" + 
+                                            self.properties.worksheetName + "/tables/" + tableName), request);
 
-        if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == HTTP_STATUS_OK) {
-                json|error response = httpResponse.getJsonPayload();
-                if (response is map<json>) {
-                    string identifier = response["id"].toString();
-                    string address = "";
-                    Table resultsTable = new(self.microsoftGraphConfig, self.properties.path, self.properties.workbookName,
-                    self.properties.sheetId, self.properties.worksheetName, identifier, address, tableName);
-                    return resultsTable;
-                } else {
-                    error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while inserting data into table.");
-                    return err;
-                }
-            } else {
-                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while inserting data into table.");
-                return err;
-            }
-        } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
-            return err;
+        if response is error {
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+                                        errorCode = HTTP_ERROR, cause = response);
+            return httpError;
         }
+
+        http:Response httpResponse = <http:Response> response;
+
+        if httpResponse.statusCode != http:STATUS_OK {
+            HttpResponseHandlingError httpResponseHandlingError = error(HTTP_RESPONSE_HANDLING_ERROR,
+                message = "Error occurred while inserting data into table.", errorCode = HTTP_RESPONSE_HANDLING_ERROR);
+            return httpResponseHandlingError;
+        }
+
+        //If the table exists we will get a JSON response with the table's information
+        json|error responseJson = httpResponse.getJsonPayload();
+
+        if !(responseJson is map<json>) {
+            typedesc<any|error> typeOfRespone = typeof responseJson;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid response; expected a `map<json>` found " +  typeOfRespone.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        map<json> payload = <map<json>> responseJson;
+    
+        json|error identifier = payload.id;
+        if !(identifier is string) {
+            typedesc<any|error> typeOfIdentifier = typeof identifier;
+            TypeConversionError typeError = error(TYPE_CONVERSION_ERROR, 
+                    message = "Invalid identifier; expected a `string` found " +  typeOfIdentifier.toString(), 
+                    errorCode = TYPE_CONVERSION_ERROR);
+            return typeError;
+        }
+
+        string sheetIdentifier = <string> identifier;
+
+        //Address is not returned from the above API call. Hence the address is initialized to an empty string
+        string address = "";
+
+        Table resultsTable = <@untainted> new (self.microsoftGraphConfig, self.properties.path, 
+                    self.properties.workbookName, self.properties.sheetId, self.properties.worksheetName,
+                    sheetIdentifier, address, tableName);
+
+        return resultsTable;
     }
 };
 
@@ -393,8 +487,7 @@ public type Worksheet client object {
 # + properties - table specific properties
 public type Table client object {
     http:Client tableClient;
-    TableProperties properties = {"path":"", "workbookName":"", "sheetId":"",
-                                                "worksheetName":"", "address":"", "tableID":"", "tableName":""};
+    TableProperties properties;
 
     public function __init(MicrosoftGraphConfiguration msGraphConfig, string path, string workbookName, string sheetId,
                             string worksheetName, string tableID, string address, string tableName) {
@@ -443,85 +536,81 @@ public type Table client object {
     # Insert data into the table.
     # + data - data to be inserted into the table
     # + return - boolean true on success, else returns an error
-    public remote function insertDataIntoTable(json data) returns boolean|error {
-        boolean result = false;
+    public remote function insertDataIntoTable(json data) returns error? {
         http:Request request = new;
         json payload = data;
         request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.tableClient->post("/v1.0/me/drive/root:" + self.properties.path +
-        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName + "/tables/" +
-        self.properties.tableName + "/rows/add", request);
+        http:Response|error httpResponse = self.tableClient->post(<@untainted> ("/v1.0/me/drive/root:" + self.properties.path +
+            self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName + "/tables/" +
+            self.properties.tableName + "/rows/add"), request);
 
         if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == HTTP_STATUS_CREATED) {
-                result = true;
+            if (httpResponse.statusCode == http:STATUS_CREATED) {
+                return ();
             } else {
-                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while inserting data into table.");
-                return err;
+                HttpResponseHandlingError httpResponseHandlingError = error(HTTP_RESPONSE_HANDLING_ERROR,
+                message = "Error occurred while inserting data into table.", errorCode = HTTP_RESPONSE_HANDLING_ERROR);
+                return httpResponseHandlingError;
             }
         } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
-            return err;
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+                        errorCode = HTTP_ERROR, cause = httpResponse);
+            return httpError;
         }
-
-        return result;
     }
 
     # Rename the table.
     # + newTableName - new name to be used with the table
     # + return - boolean true on success, else returns an error
-    public remote function renameTable(string newTableName) returns @tainted (boolean|error) {
-        boolean result = false;
+    public remote function renameTable(string newTableName) returns @tainted error? {
         http:Request request = new;
         json payload = {"name": newTableName};
         request.setJsonPayload(payload);
         http:Response|error httpResponse = self.tableClient->patch("/v1.0/me/drive/root:" + self.properties.path +
-        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName +
-        "/tables/" + self.properties.tableName, request);
+                    self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName +
+                    "/tables/" + self.properties.tableName, request);
 
         if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == HTTP_STATUS_OK) {
+            if (httpResponse.statusCode == http:STATUS_OK) {
                 self.properties.tableName = newTableName;
-                result = true;
+                return ();
             } else {
-                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while renaming the table.");
-                return err;
+                HttpResponseHandlingError httpResponseHandlingError = error(HTTP_RESPONSE_HANDLING_ERROR,
+                message = "Error occurred while renaming the table.", errorCode = HTTP_RESPONSE_HANDLING_ERROR);
+                return httpResponseHandlingError;
             }
         } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
-            return err;
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+            errorCode = HTTP_ERROR, cause = httpResponse);
+            return httpError;
         }
-
-        return result;
     }
 
     # Set a table's header.
-    # + tableName - name of the table to be changed
     # + columnID - ID of the tableColumn to change
     # + headerName - new name of the table header
     # + return - boolean true on success, else returns an error
-    public remote function setTableHeader(string tableName, int columnID, string headerName) returns boolean|error {
-        boolean result = false;
+    public remote function setTableHeader(int columnID, string headerName) returns error? {
         http:Request request = new;
         json payload = {"name": headerName};
         request.setJsonPayload(payload);
-        http:Response|error httpResponse = self.tableClient->patch("/v1.0/me/drive/root:" + self.properties.path +
-        self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName + "/tables/" +
-        tableName + "/columns/" + columnID.toString(), request);
+        http:Response|error httpResponse = self.tableClient->patch(<@untainted> ("/v1.0/me/drive/root:" + self.properties.path +
+            self.properties.workbookName + ".xlsx:/workbook/worksheets/" + self.properties.worksheetName + "/tables/" +
+            self.properties.tableName + "/columns/" + columnID.toString()), request);
 
         if (httpResponse is http:Response) {
-            if (httpResponse.statusCode == HTTP_STATUS_OK) {
-                result = true;
+            if (httpResponse.statusCode == http:STATUS_OK) {
+                return ();
             } else {
-                error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while setting the table header.");
-                return err;
+                HttpResponseHandlingError httpResponseHandlingError = error(HTTP_RESPONSE_HANDLING_ERROR,
+                message = "Error occurred while setting the table header.", errorCode = HTTP_RESPONSE_HANDLING_ERROR);
+                return httpResponseHandlingError;
             }
         } else {
-            error err = error(WORKSHEET_ERROR_CODE, message = "Error occurred while accessing the Microsoft Graph API.");
-            return err;
+            HttpError httpError = error(HTTP_ERROR, message = "Error occurred while accessing the Microsoft Graph API.", 
+            errorCode = HTTP_ERROR, cause = httpResponse);
+            return httpError;
         }
-
-        return result;
     }
 };
 
