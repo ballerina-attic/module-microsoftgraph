@@ -1,6 +1,6 @@
 # Module Microsoft Graph
 
-Connects to Microsoft Graph API which acts as the gateway to data and intelligence in Microsoft 365. Microsoft Graph exposes a unified programming model which can be used to access vast amounts of data available in Office 365, Windows 10, and Enterprise Mobility & Security.
+This module allows users to connect to the Microsoft Graph API, which acts as the gateway to data and intelligence in Microsoft 365. Microsoft Graph exposes a unified programming model, which can be used to access vast amounts of data available in Office 365, Windows 10, and Enterprise Mobility & Security.
 
 The current implementation of Microsoft Graph consists of the following sub modules.
 
@@ -15,14 +15,14 @@ The `wso2/msonedrive` module contains operations for accessing the items stored 
 ## Compatibility
 |                     |    Version     |
 |:-------------------:|:--------------:|
-| Ballerina Language  | 1.2.0   |
+| Ballerina Language  | 1.2.x   |
 | Microsoftgraph REST API | v1.0          |
 
 ## Getting started
 
-1.  Refer the [Getting Started](https://ballerina.io/learn/getting-started/) guide to download and install Ballerina.
+1.  Download and install Ballerina. For instructions, go to [Installing Ballerina](https://ballerina.io/v1-2/learn/installing-ballerina/).
 
-2.  To use the Microsoft Graph API, you need to provide the following configuration information in the ballerina.conf file:
+2.  Provide the following configuration information in the `ballerina.conf` file to use the Microsoft Graph API.
 
        - MS_CLIENT_ID
        - MS_CLIENT_SECRET
@@ -34,43 +34,62 @@ The `wso2/msonedrive` module contains operations for accessing the items stored 
        - WORK_SHEET_NAME
        - TABLE_NAME
 
-    Following steps should be followed to obtain the above mentioned configuration information.
+    Follow the steps below to obtain the configuration information mentioned above.
 
-    Before you run the following steps you may have to create an account in [OneDrive](https://onedrive.live.com). Next, sign into [Azure Portal - App Registrations](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade). You may have to use your personal or work or school account.
+    Before you run the following steps, create an account in [OneDrive](https://onedrive.live.com). Next, sign into [Azure Portal - App Registrations](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade). You can use your personal or work or school account to register.
 
-    From the App registrations page, click on New registration. Enter a meaningful name in the name field. 
-    In the Supported account types section, select Accounts in any organizational directory and personal Microsoft accounts (e.g. Skype, Xbox, Outlook.com). Click Register to create the application.
+    In the App registrations page, click **New registration** and enter a meaningful name in the name field.
+
+    !["Figure 1: App registrations page"](images/step1.jpg)
+
+    *Figure 1: App registrations page*
+
+    In the Supported account types section, select **Accounts** in any organizational directory under personal Microsoft accounts (e.g., Skype, Xbox, Outlook.com). Click **Register** to create the application.
+
+    !["Figure 2: Accounts type selection"](images/step2.jpg)
+    
+    *Figure 2: Accounts type selection*
 
     Copy the Application (client) ID (\<MS_CLIENT_ID>). This is the unique identifier for your app.
-    In the application's list of pages (under the Manage tab in left hand side menu), select Authentication.
-    Under the Platform configurations click on "Add a platform" button.
-    Under the "Configure platforms", click on "Web" button located under the Web applications.
+    In the application's list of pages (under the **Manage** tab in left hand side menu), select **Authentication**.
+    Under **Platform configurations**, click **Add a platform**.
 
-    Under the redirect URIs text box, put [OAuth2 Native Client](https://login.microsoftonline.com/common/oauth2/nativeclient).
-    Under the Implicit grant select Access tokens.
-    Click on Configure.
-    Under the Certificates & Secrets, create a new client secret (\<MS_CLIENT_SECRET>). This requires providing a description and a period of expiry. Next, click on Add button.
+    !["Figure 3: Add a platform"](images/step3.jpg)
+    
+    *Figure 3: Add a platform*
 
-    Next, we need to obtain an access token and a refresh token to invoke the Microsoft Graph API.
-    First, in a new browser enter this URL by replacing the \<MS_CLIENT_ID> with the application ID.
+    Under **Configure platforms**, click the **Web** button located under **Web applications**.
+
+    Under the **Redirect URIs text box**, put [OAuth2 Native Client](https://login.microsoftonline.com/common/oauth2/nativeclient).
+    Under **Implicit grant**, select **Access tokens**.
+    Click on **Configure**.
+
+    !["Figure 4: Update security configurations"](images/step4.jpg)
+    
+    *Figure 4: Update security configurations*
+
+    Under **Certificates & Secrets**, create a new client secret (\<MS_CLIENT_SECRET>). This requires providing a description and a period of expiry. Next, click **Add**.
+
+    Next, you need to obtain an access token and a refresh token to invoke the Microsoft Graph API.
+    First, in a new browser, enter the below URL by replacing the \<MS_CLIENT_ID> with the application ID.
 
     ```
     https://login.microsoftonline.com/common/oauth2/v2.0/authorize?response_type=code&client_id=<MS_CLIENT_ID>&redirect_uri=https://login.microsoftonline.com/common/oauth2/nativeclient&scope=Files.ReadWrite openid User.Read Mail.Send Mail.ReadWrite offline_access
     ```
 
-    This may prompt you to enter the username and password for signing into  Azure Portal App.
+    This will prompt you to enter the username and password for signing into the Azure Portal App.
 
-    Once the username password pair successfully entered this will give a URL like follows on the browser address bar.
+    Once the username and password pair is successfully entered, this will give a URL as follows on the browser address bar.
 
-    https://login.microsoftonline.com/common/oauth2/nativeclient?code=M95780001-0fb3-d138-6aa2-0be59d402f32
+    `https://login.microsoftonline.com/common/oauth2/nativeclient?code=M95780001-0fb3-d138-6aa2-0be59d402f32`
 
-    Copy the code parameter (M95780001-0fb3-d138-6aa2-0be59d402f32 in the above example) and in a new terminal enter the following CURL command with replacing the \<MS_CODE> with the code received from the above step. The \<MS_CLIENT_ID> and \<MS_CLIENT_SECRET> parameters are the same as above.
+    Copy the code parameter (M95780001-0fb3-d138-6aa2-0be59d402f32 in the above example) and in a new terminal, enter the following CURL command by replacing the \<MS_CODE> with the code received from the above step. The \<MS_CLIENT_ID> and \<MS_CLIENT_SECRET> parameters are the same as above.
 
     ```
     curl -X POST --header "Content-Type: application/x-www-form-urlencoded" --header "Host:login.microsoftonline.com" -d "client_id=<MS_CLIENT_ID>&client_secret=<MS_CLIENT_SECRET>&grant_type=authorization_code&redirect_uri=https://login.microsoftonline.com/common/oauth2/nativeclient&code=<MS_CODE>&scope=Files.ReadWrite openid User.Read Mail.Send Mail.ReadWrite offline_access" https://login.microsoftonline.com/common/oauth2/v2.0/token
     ```
 
-    The above CURL command should result in a response as follows,
+    The above CURL command should result in a response as follows.
     ```
     {
     "token_type": "Bearer",
@@ -83,13 +102,13 @@ The `wso2/msonedrive` module contains operations for accessing the items stored 
     }
     ```
 
-    Set the path to your Ballerina distribution's trust store in the <TURST_STORE_PATH>. This is by default located in the following path.
+    Set the path to your Ballerina distribution's trust store as the \<TURST_STORE_PATH>. This is by default located in the following path.
 
-    $BALLERINA_HOME/distributions/jballerina-<BALLERINA_VERSION>/bre/security/ballerinaTruststore.p12
+    `$BALLERINA_HOME/distributions/jballerina-<BALLERINA_VERSION>/bre/security/ballerinaTruststore.p12`
 
-    The default TRUST_STORE_PASSWORD is set to "ballerina".
+    The default `TRUST_STORE_PASSWORD` is set to "ballerina".
 
-    WORK_BOOK_NAME, WORK_SHEET_NAME, and TABLE_NAME corresponds to workbook file name (without the .xlsx extension), worksheet name, and the table name respectively. Makesure you create a workbook with the same WORK_BOOK_NAME on Microsoft OneDrive before using the connector.
+    The `WORK_BOOK_NAME`, `WORK_SHEET_NAME`, and `TABLE_NAME` correspond to the workbook file name (without the .xlsx extension), worksheet name, and table name respectively. Make sure you create a workbook with the same `WORK_BOOK_NAME` as on Microsoft OneDrive before using the connector.
 
 3. Create a new Ballerina project by executing the following command.
 
@@ -97,20 +116,22 @@ The `wso2/msonedrive` module contains operations for accessing the items stored 
 	<PROJECT_ROOT_DIRECTORY>$ ballerina init
 	```
 
-4. Import the Microsoft Graph connector to your Ballerina program as follows. The following sample program creates a new worksheet on an existing workbook on Microsoft OneDrive. Prior running this application please create a workbook on your Microsoft OneDrive account
-having the name "MyShop.xlsx". There needs to be at least one worksheet (i.e., a tab) on the workbook for this sample program to work. Note that the sample application first tries to delete an existing worksheet named "Sales" from the workbook. If its not available it may throw an error and continue executing the rest of the program. This error may get thrown during the very first round of running the sample application. Makesure, you keep the ballerina.conf file with the above mentioned configuration information before running the
-sample application.
+4. Import the Microsoft Graph connector to your Ballerina program as follows.
+
+    The following sample program creates a new worksheet on an existing workbook on Microsoft OneDrive. Prior to running this application, create a workbook on your Microsoft OneDrive account with the name "MyShop.xlsx". There needs to be at least one worksheet (i.e., a tab) on the workbook for this sample program to work. 
+
+    The sample application first tries to delete an existing worksheet named "Sales" from the workbook. If its not available, it may throw an error and continue executing the rest of the program. This error will get thrown during the very first round of running the sample application. Make sure that you keep the `ballerina.conf` file with the above-mentioned configuration information before running the
 
 ## Sample Application
 
-	```ballerina
-	import ballerina/config;
+	```
+    import ballerina/config;
     import ballerina/log;
     import ballerina/time;
-    import wso2/msspreadsheets;
-    import wso2/msonedrive;
+    import ballerinax/msspreadsheets;
+    import ballerinax/msonedrive;
 
-    // Create Microsoft Graph Client configuration by reading from config file.
+    // Create the Microsoft Graph Client configuration by reading the config file.
     msspreadsheets:MicrosoftGraphConfiguration msGraphConfig = {
         baseUrl: config:getAsString("MS_BASE_URL"),
         msInitialAccessToken: config:getAsString("MS_ACCESS_TOKEN"),
@@ -139,75 +160,106 @@ sample application.
     string TABLE_NAME = "tbl";
 
     public function main() {
-        msspreadsheets:Workbook|error workbook = msSpreadsheetClient->openWorkbook("/", WORK_BOOK_NAME);
+        msspreadsheets:Workbook|error workbookResponse = msSpreadsheetClient->openWorkbook("/", WORK_BOOK_NAME);
 
-        if (workbook is msspreadsheets:Workbook) {
-            boolean|error resultRemove = workbook->removeWorksheet(WORK_SHEET_NAME);
-            if (resultRemove is boolean) {
-                log:printInfo("Worksheet was deleted");
-            } else {
-                log:printError("Could not delete the Worksheet", err = resultRemove);
-            }
-
-            msspreadsheets:Worksheet|error sheet = workbook->createWorksheet(WORK_SHEET_NAME);
-
-            if (sheet is msspreadsheets:Worksheet) {
-                log:printInfo("Worksheet was created");
-                msspreadsheets:Table|error resultTable = sheet->createTable(TABLE_NAME, <@untainted> ("A1:E1"));
-
-                if (resultTable is msspreadsheets:Table) {
-                    boolean|error resultHeader = resultTable->setTableHeader(TABLE_NAME, 1, "ID");
-                    resultHeader = resultTable->setTableHeader(TABLE_NAME, 2, "DateSold");
-                    resultHeader = resultTable->setTableHeader(TABLE_NAME, 3, "ItemID");
-                    resultHeader = resultTable->setTableHeader(TABLE_NAME, 4, "ItemName");
-                    resultHeader = resultTable->setTableHeader(TABLE_NAME, 5, "Price");
-
-                    if (resultHeader is boolean) {
-                        json[][] valuesString=[];
-                        time:Time time = time:currentTime();
-                        string|error cString1 = time:format(time, "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-                        string customTimeString = "";
-                        if (cString1 is string) {
-                            customTimeString = cString1;
-                        }
-
-                        foreach int counter in 1...5 {
-                            int itemID = counter + 100;
-                            json[] arr = [ counter.toString(), customTimeString, 
-                            itemID.toString(), "Item-" + itemID.toString(), "10" ];
-                            valuesString.push(arr);
-                        }
-                        json data = {"values": valuesString};
-                        boolean|error result = resultTable->insertDataIntoTable(<@untainted> data);
-
-                        if (result is boolean) {
-                            if (result) {
-                                log:printInfo("Inserted data into table");
-
-                                msonedrive:OneDriveClient msOneDriveClient = new(msGraphConfig);
-                                msonedrive:Item|error item = msOneDriveClient->getItemFromRoot(WORK_BOOK_NAME + ".xlsx");
-                                if (item is msonedrive:Item) {
-                                    log:printInfo("The URL of the workbook (" + item.name.toString() + ") is " + item.webUrl.toString());
-                                } else {
-                                     log:printError("Error getting the spreadsheet URL", err = item);
-                                }
-                            } else {
-                                log:printError("Error inserting data into the table");
-                            }
-                        } else {
-                            log:printError("Error inserting data into the table");
-                        }
-                    } else {
-                        log:printError("Error setting table headers", err = resultHeader);
-                    }
-                } else {
-                    log:printError("Error creating table", err = resultTable);
-                }
-            } else {
-                log:printError("Error opening worksheet", err = sheet);
-            }
-        } else {
-            log:printError("Error opening workbook", err = workbook);
+        if workbookResponse is error {
+            log:printInfo("Error opening workbook.");
+            return;
         }
+
+        msspreadsheets:Workbook workbook = <msspreadsheets:Workbook> workbookResponse;
+
+        error? resultRemove = workbook->removeWorksheet(WORK_SHEET_NAME);
+
+        if !(resultRemove is ()) {
+            log:printError("Could not delete the Worksheet, but will continue execution", err = resultRemove);
+        }
+
+        msspreadsheets:Worksheet|error sheetResponse = workbook->createWorksheet(WORK_SHEET_NAME);
+
+        if !(sheetResponse is msspreadsheets:Worksheet) {
+            log:printError("Could not create the Worksheet", err = sheetResponse);
+            return;
+        }
+
+        msspreadsheets:Worksheet sheet = <msspreadsheets:Worksheet> sheetResponse;
+
+        msspreadsheets:Table|error resultTableResponse = sheet->createTable(TABLE_NAME, <@untainted> ("A1:E1"));
+
+        if !(resultTableResponse is msspreadsheets:Table) {
+            log:printError("Could not create the Table", err = resultTableResponse);
+            return;
+        }
+
+        msspreadsheets:Table resultTable = <msspreadsheets:Table> resultTableResponse;
+
+        error? resultHeader = resultTable->setTableHeader(1, "ID");
+
+        if !(resultHeader is ()) {
+            log:printError("Could not set the Table header of colunm 1", err = resultHeader);
+            return;
+        }
+
+        resultHeader = resultTable->setTableHeader(2, "DateSold");
+
+        if !(resultHeader is ()) {
+            log:printError("Could not set the Table header of colunm 2", err = resultHeader);
+            return;
+        }
+
+        resultHeader = resultTable->setTableHeader(3, "ItemID");
+
+        if !(resultHeader is ()) {
+            log:printError("Could not set the Table header of colunm 3", err = resultHeader);
+            return;
+        }
+
+        resultHeader = resultTable->setTableHeader(4, "ItemName");
+
+        if !(resultHeader is ()) {
+            log:printError("Could not set the Table header of colunm 4", err = resultHeader);
+            return;
+        }
+
+        resultHeader = resultTable->setTableHeader(5, "Price");
+
+        if !(resultHeader is ()) {
+            log:printError("Could not set the Table header of colunm 5", err = resultHeader);
+            return;
+        }        
+
+        json[][] valuesString=[];
+        time:Time time = time:currentTime();
+        string|error cString1 = time:format(time, "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+        string customTimeString = "";
+        if (cString1 is string) {
+            customTimeString = cString1;
+        }
+
+        foreach int counter in 1...5 {
+            int itemID = counter + 100;
+            json[] arr = [ counter.toString(), customTimeString, 
+            itemID.toString(), "Item-" + itemID.toString(), "10" ];
+            valuesString.push(arr);
+        }
+        json data = {"values": valuesString};
+        error? result = resultTable->insertDataIntoTable(<@untainted> data);
+
+        if !(result is ()) {
+            log:printError("Error inserting data into the table");
+            return;
+        }
+
+        msonedrive:OneDriveClient msOneDriveClient = new(msGraphConfig);
+
+        msonedrive:Item|error itemResponse = msOneDriveClient->getItemFromRoot(WORK_BOOK_NAME + ".xlsx");
+        
+        if (itemResponse is error) {
+            log:printError("Error in getting the item's URL");
+        }
+
+        msonedrive:Item item = <msonedrive:Item> itemResponse;
+
+        log:printInfo("The URL of the workbook (" + item.name.toString() + ") is " + item.webUrl.toString());
     }
 	```
