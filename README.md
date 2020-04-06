@@ -6,7 +6,7 @@ The current implementation of Microsoft Graph consists of the following sub modu
 
 **Spreadsheet Operations**
 
-The `ballerinax/msspreadsheets` module contains operations to perform CRUD (Create, Read, Update, and Delete) operations on [Excel workbooks](https://docs.microsoft.com/en-us/graph/api/resources/excel?view=graph-rest-1.0) stored in Microsoft OneDrive.
+The `ballerinax/microsoft.sheets1` module contains operations to perform CRUD (Create, Read, Update, and Delete) operations on [Excel workbooks](https://docs.microsoft.com/en-us/graph/api/resources/excel?view=graph-rest-1.0) stored in Microsoft OneDrive.
 
 **OneDrive Operations**
 Microsoft OneDrive is a file hosting service and synchronization service run by Microsoft. It is operated as part of Microsoft Office 365.
@@ -128,11 +128,11 @@ The `ballerinax/msonedrive` module contains operations for accessing the items s
     import ballerina/config;
     import ballerina/log;
     import ballerina/time;
-    import ballerinax/msspreadsheets;
-    import ballerinax/msonedrive;
+    import ballerinax/microsoft.sheets1 as sheets;
+    import ballerinax/microsoft.onedrive1 as onedrive;
 
     // Create the Microsoft Graph Client configuration by reading the config file.
-    msspreadsheets:MicrosoftGraphConfiguration msGraphConfig = {
+    sheets:MicrosoftGraphConfiguration msGraphConfig = {
         baseUrl: config:getAsString("MS_BASE_URL"),
         msInitialAccessToken: config:getAsString("MS_ACCESS_TOKEN"),
         msClientID: config:getAsString("MS_CLIENT_ID"),
@@ -153,21 +153,21 @@ The `ballerinax/msonedrive` module contains operations for accessing the items s
         }
     };
 
-    msspreadsheets:MSSpreadsheetClient msSpreadsheetClient = new(msGraphConfig);
+    sheets:MSSpreadsheetClient msSpreadsheetClient = new(msGraphConfig);
     
     string WORK_BOOK_NAME = "MyShop";
     string WORK_SHEET_NAME = "Sales";
     string TABLE_NAME = "tbl";
 
     public function main() {
-        msspreadsheets:Workbook|error workbookResponse = msSpreadsheetClient->openWorkbook("/", WORK_BOOK_NAME);
+        sheets:Workbook|error workbookResponse = msSpreadsheetClient->openWorkbook("/", WORK_BOOK_NAME);
 
         if workbookResponse is error {
             log:printInfo("Error opening workbook.");
             return;
         }
 
-        msspreadsheets:Workbook workbook = <msspreadsheets:Workbook> workbookResponse;
+        sheets:Workbook workbook = <sheets:Workbook> workbookResponse;
 
         error? resultRemove = workbook->removeWorksheet(WORK_SHEET_NAME);
 
@@ -175,23 +175,23 @@ The `ballerinax/msonedrive` module contains operations for accessing the items s
             log:printError("Could not delete the Worksheet, but will continue execution", err = resultRemove);
         }
 
-        msspreadsheets:Worksheet|error sheetResponse = workbook->createWorksheet(WORK_SHEET_NAME);
+        sheets:Worksheet|error sheetResponse = workbook->createWorksheet(WORK_SHEET_NAME);
 
-        if !(sheetResponse is msspreadsheets:Worksheet) {
+        if !(sheetResponse is sheets:Worksheet) {
             log:printError("Could not create the Worksheet", err = sheetResponse);
             return;
         }
 
-        msspreadsheets:Worksheet sheet = <msspreadsheets:Worksheet> sheetResponse;
+        sheets:Worksheet sheet = <sheets:Worksheet> sheetResponse;
 
-        msspreadsheets:Table|error resultTableResponse = sheet->createTable(TABLE_NAME, <@untainted> ("A1:E1"));
+        sheets:Table|error resultTableResponse = sheet->createTable(TABLE_NAME, <@untainted> ("A1:E1"));
 
-        if !(resultTableResponse is msspreadsheets:Table) {
+        if !(resultTableResponse is sheets:Table) {
             log:printError("Could not create the Table", err = resultTableResponse);
             return;
         }
 
-        msspreadsheets:Table resultTable = <msspreadsheets:Table> resultTableResponse;
+        sheets:Table resultTable = <sheets:Table> resultTableResponse;
 
         error? resultHeader = resultTable->setTableHeader(1, "ID");
 
@@ -250,15 +250,15 @@ The `ballerinax/msonedrive` module contains operations for accessing the items s
             return;
         }
 
-        msonedrive:OneDriveClient msOneDriveClient = new(msGraphConfig);
+        onedrive:OneDriveClient msOneDriveClient = new(msGraphConfig);
 
-        msonedrive:Item|error itemResponse = msOneDriveClient->getItemFromRoot(WORK_BOOK_NAME + ".xlsx");
+        onedrive:Item|error itemResponse = msOneDriveClient->getItemFromRoot(WORK_BOOK_NAME + ".xlsx");
         
         if (itemResponse is error) {
             log:printError("Error in getting the item's URL");
         }
 
-        msonedrive:Item item = <msonedrive:Item> itemResponse;
+        onedrive:Item item = <onedrive:Item> itemResponse;
 
         log:printInfo("The URL of the workbook (" + item.name.toString() + ") is " + item.webUrl.toString());
     }

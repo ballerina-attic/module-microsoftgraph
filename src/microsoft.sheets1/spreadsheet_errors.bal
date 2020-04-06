@@ -14,7 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-# Holds the details of a Microsoft Graph OneDrive error
+
+# Holds the details of a Microsoft Graph Spreadsheet error
 #
 # + message - Specific error message for the error
 # + cause - Cause of the error; If this error occurred due to another error (Probably from another module)
@@ -23,13 +24,19 @@ public type ErrorDetail record {
     error cause?;
 };
 
-//Ballerina Microsoft Graph OneDrive Error types
+//Ballerina Microsoft Graph Spreadsheet Error types
 
-const string TYPE_CONVERSION_ERROR = "{ballerinax/msonedrive}TypeConversionError";
+const string TYPE_CONVERSION_ERROR = "{ballerinax/microsoft.sheets1}TypeConversionError";
 public type TypeConversionError error<TYPE_CONVERSION_ERROR, ErrorDetail>;
 
-const string HTTP_ERROR = "{ballerinax/msonedrive}HttpError";
+const string HTTP_ERROR = "{ballerinax/microsoft.sheets1}HttpError";
 public type HttpError error<HTTP_ERROR, ErrorDetail>;
 
-// Ballerina Microsoft Graph OneDrive Union Errors
-public type Error HttpError|TypeConversionError;
+const HTTP_RESPONSE_HANDLING_ERROR = "{ballerinax/microsoft.sheets1}HttpResponseHandlingError";
+public type HttpResponseHandlingError error<HTTP_RESPONSE_HANDLING_ERROR, ErrorDetail>;
+
+const string TABLE_ERROR_CODE = "{ballerinax/microsoft.sheets1}TableError";
+public type TableError error<TABLE_ERROR_CODE, ErrorDetail>;
+
+// Ballerina Microsoft Graph Spreadsheet Union Errors
+public type Error TableError|HttpResponseHandlingError|HttpError|TypeConversionError;

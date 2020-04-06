@@ -1,11 +1,17 @@
-This module allows users to connect to Microsoft OneDrive and provides information on the files, which have been stored on OneDrive.
+This module allows users to connect to a Microsoft Office 365 Workbook located on Microsoft OneDrive.
 
 # Module Overview
-This module contains operations for accessing the items stored in OneDrive.
+This module contains operations to perform CRUD (Create, Read, Update, and Delete) operations on [Excel workbooks](https://docs.microsoft.com/en-us/graph/api/resources/excel?view=graph-rest-1.0) stored in Microsoft OneDrive.
 
 ## Supported Operations
-- Get an item from the root directory
-- Get an item from a non-root directory
+- Open a workbook
+- Create a worksheet
+- Open a worksheet
+- Remove a worksheet
+- Create a table
+- Rename a table
+- Set a table header
+- Insert data into a table
 
 ## Compatibility
 |                     |    Version     |
@@ -21,7 +27,7 @@ The Microsoft Graph connector can be minimally instantiated in the HTTP client c
 
 **Add project configurations file**
 
-Add the project configuration file by creating a `ballerina.conf` file under the root path of the project structure. This file should have following configurations. Add the tokens obtained in the previous step to the `ballerina.conf` file.
+Add the project configuration file by creating a `ballerina.conf` file under the root path of the project structure. This file should have following configurations. Add the tokens obtained in the previous step to the `ballerina.conf` file. Makesure to configure the path to Ballerina trust store and set the trust store password.
 
 ```
 MS_BASE_URL="https://graph.microsoft.com"
@@ -32,16 +38,16 @@ MS_REFRESH_URL="https://login.microsoftonline.com/common/oauth2/v2.0/token"
 MS_ACCESS_TOKEN="<MS_ACCESS_TOKEN>"
 TRUST_STORE_PATH=""
 TRUST_STORE_PASSWORD=""
-WORK_BOOK_NAME=""
-WORK_SHEET_NAME=""
-TABLE_NAME=""
 ```
 
 **Example Code**
-Creating a `msonedrive:OneDriveClient` by giving the HTTP client config details.
+Creating a `microsoft.sheets1:MSSpreadsheetClient` by giving the HTTP client config details. The module `microsoft.sheets1` 
+is referred as an alias `sheets`.
 
 ```
-    msonedrive:MicrosoftGraphConfiguration msGraphConfig = {
+    import ballerinax/microsoft.sheets1 as sheets;
+
+    sheets:MicrosoftGraphConfiguration msGraphConfig = {
         baseUrl: config:getAsString("MS_BASE_URL"),
         msInitialAccessToken: config:getAsString("MS_ACCESS_TOKEN"),
         msClientID: config:getAsString("MS_CLIENT_ID"),
@@ -62,24 +68,33 @@ Creating a `msonedrive:OneDriveClient` by giving the HTTP client config details.
         }
     };
 
-    msonedrive:OneDriveClient msOneDriveClient = new(msGraphConfig);
+    sheets:MSSpreadsheetClient msSpreadsheetClient = new(msGraphConfig);
 ```
 
-Getting an item from OneDrive's root directory. Here we are getting an item called `Book.xlsx` from the root.
+Open an existing workbook named `Book.xlsx`. No need of specifying the workbook extension `.xlsx` here.
 
-```msonedrive:Item|error item = msOneDriveClient->getItemFromRoot("Book.xlsx");```
+```sheets:Workbook|error workbook = msSpreadsheetClient->openWorkbook("/", "Book");```
 
-Getting an item from OneDrive's directory other than root. Here we are getting an item called `Book.xlsx` from the location `/myfolder`
+Creating a new worksheet named `WS`
 
-```msonedrive:Item|error item = msOneDriveClient->getItemFromNonRoot("/myfolder", "Book.xlsx");```
+```sheets:Worksheet|error sheet = workbook->createWorksheet("WS");```
 
-Getting the URL of an item.
+Opening an existing worksheet named `WS`
 
-```
-    msonedrive:Item|error item = msOneDriveClient->getItemFromRoot("Book.xlsx");
-    if (item is msonedrive:Item) {
-        log:printInfo("The URL of the workbook is " + item.webUrl.toString());
-    } else {
-        log:printError("Error getting the spreadsheet URL", err = item);
-    }
-```
+```sheets:Worksheet|error sheet = workbook->openWorksheet("WS");```
+
+Creating a new table `table1` on a worksheet. The table has five columns
+
+```sheets:Table|error resultTable = sheet->createTable("table1", <@untainted> ("A1:E1"));```
+
+Setting a table header. Here the header of the first column of the table is set to `ID`
+
+```error? resultHeader = resultTable->setTableHeader(1, "ID");```
+
+Inserting data to a table. Here data is a json variable holding rows of the table inside a json array attribute
+
+```error? result = resultTable->insertDataIntoTable(<@untainted> data); ```
+
+Remove a worksheet named `WS`
+
+```error? resultRemove = workbook->removeWorksheet("WS");```
