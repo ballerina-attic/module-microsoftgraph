@@ -39,4 +39,4 @@ const string TABLE_ERROR_CODE = "{ballerinax/msspreadsheets}TableError";
 public type TableError error<TABLE_ERROR_CODE, ErrorDetail>;
 
 // Ballerina Microsoft Graph Spreadsheet Union Errors
-public type WorksheetError TableError|HttpResponseHandlingError|HttpError|TypeConversionError;
+public type Error TableError|HttpResponseHandlingError|HttpError|TypeConversionError;

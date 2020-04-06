@@ -6,11 +6,11 @@ The current implementation of Microsoft Graph consists of the following sub modu
 
 **Spreadsheet Operations**
 
-The `wso2/msspreadsheets` module contains operations to perform CRUD (Create, Read, Update, and Delete) operations on [Excel workbooks](https://docs.microsoft.com/en-us/graph/api/resources/excel?view=graph-rest-1.0) stored in Microsoft OneDrive.
+The `ballerinax/msspreadsheets` module contains operations to perform CRUD (Create, Read, Update, and Delete) operations on [Excel workbooks](https://docs.microsoft.com/en-us/graph/api/resources/excel?view=graph-rest-1.0) stored in Microsoft OneDrive.
 
 **OneDrive Operations**
 Microsoft OneDrive is a file hosting service and synchronization service run by Microsoft. It is operated as part of Microsoft Office 365.
-The `wso2/msonedrive` module contains operations for accessing the items stored in OneDrive.
+The `ballerinax/msonedrive` module contains operations for accessing the items stored in OneDrive.
 
 ## Compatibility
 |                     |    Version     |

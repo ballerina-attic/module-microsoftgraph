@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import ballerina/test;
 import ballerina/config;
+import ballerina/test;
 
 // Create the Microsoft Graph Client configuration by reading the config file.
 MicrosoftGraphConfiguration msGraphConfig = {
@@ -39,9 +39,9 @@ MicrosoftGraphConfiguration msGraphConfig = {
     }
 };
 
-MSSpreadsheetClient msSpreadsheetClient = new(msGraphConfig);
-Workbook workBook = new(msGraphConfig, "", "");
-Worksheet worksheet = new(msGraphConfig, "", "", "", "", 0);
+MSSpreadsheetClient msSpreadsheetClient = new (msGraphConfig);
+Workbook workBook = new (msGraphConfig, "", "");
+Worksheet worksheet = new (msGraphConfig, "", "", "", "", 0);
 
 @test:Config {}
 function testOpenWorkBook() {
@@ -49,7 +49,8 @@ function testOpenWorkBook() {
 
     if (wb is Workbook) {
         WorkbookProperties properties = wb.getProperties();
-        test:assertEquals(properties.workbookName, config:getAsString("WORK_BOOK_NAME"), msg = "Failed to open the workbook.");
+        test:assertEquals(properties.workbookName, config:getAsString("WORK_BOOK_NAME"),
+            msg = "Failed to open the workbook.");
         workBook = wb;
     } else {
         test:assertFail(msg = <string>wb.detail()["message"]);
@@ -59,12 +60,12 @@ function testOpenWorkBook() {
 @test:Config {
     dependsOn: ["testOpenWorkBook"]
 }
-function testCreateSpreadsheet() {   
+function testCreateSpreadsheet() {
     Worksheet|error ws = workBook->createWorksheet(config:getAsString("WORK_SHEET_NAME"));
 
     if (ws is Worksheet) {
         test:assertEquals(ws.getProperties().worksheetName, config:getAsString("WORK_SHEET_NAME"),
-        msg = "Failed to create the worksheet.");
+            msg = "Failed to create the worksheet.");
         worksheet = ws;
     } else {
         test:assertFail(msg = <string>ws.detail()["message"]);
@@ -78,7 +79,8 @@ function testCreateTable() {
     Table|error tbl = worksheet->createTable(config:getAsString("TABLE_NAME"), "A1:D1");
 
     if (tbl is Table) {
-        test:assertEquals(tbl.getProperties().tableName, config:getAsString("TABLE_NAME"), msg = "Failed to create the table.");
+        test:assertEquals(tbl.getProperties().tableName, config:getAsString("TABLE_NAME"),
+            msg = "Failed to create the table.");
     } else {
         test:assertFail(msg = <string>tbl.detail()["message"]);
     }

@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import ballerina/test;
 import ballerina/config;
+import ballerina/test;
 
 // Create the Microsoft Graph Client configuration by reading the config file.
 MicrosoftGraphConfiguration msGraphConfig = {
@@ -39,14 +39,15 @@ MicrosoftGraphConfiguration msGraphConfig = {
     }
 };
 
-OneDriveClient oneDriveClient = new(msGraphConfig);
+OneDriveClient oneDriveClient = new (msGraphConfig);
 
 @test:Config {}
 function testGetURLofItem() {
     Item|error item = oneDriveClient->getItemFromRoot(config:getAsString("WORK_BOOK_NAME") + ".xlsx");
 
     if (item is Item) {
-        test:assertEquals(item.name, config:getAsString("WORK_BOOK_NAME") + ".xlsx", msg = "Failed to get the Excel workbook.");
+        test:assertEquals(item.name, config:getAsString("WORK_BOOK_NAME") + ".xlsx",
+            msg = "Failed to get the Excel workbook.");
     } else {
         test:assertFail(msg = <string>item.detail()["message"]);
     }

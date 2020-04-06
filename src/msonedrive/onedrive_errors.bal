@@ -32,4 +32,4 @@ const string HTTP_ERROR = "{ballerinax/msonedrive}HttpError";
 public type HttpError error<HTTP_ERROR, ErrorDetail>;
 
 // Ballerina Microsoft Graph OneDrive Union Errors
-public type OneDriveError HttpError|TypeConversionError;
+public type Error HttpError|TypeConversionError;

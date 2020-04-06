@@ -45,11 +45,11 @@ public type WorksheetProperties record {|
 # + address - the location where the table should be created (e.g., A4:D4)
 # + tableName - name of the table
 public type TableProperties record {|
-   string path;
-   string workbookName;
-   string sheetId;
-   string worksheetName;
-   string tableID;
-   string address;
-   string tableName;
+    string path;
+    string workbookName;
+    string sheetId;
+    string worksheetName;
+    string tableID;
+    string address;
+    string tableName;
 |};
