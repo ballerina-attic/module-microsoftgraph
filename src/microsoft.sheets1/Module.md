@@ -42,7 +42,7 @@ TRUST_STORE_PASSWORD=""
 
 **Example Code**
 Creating a `microsoft.sheets1:MSSpreadsheetClient` by giving the HTTP client config details. The module `microsoft.sheets1` 
-is referred as an alias `sheets`.
+is referred as the module prefix `sheets`.
 
 ```
     import ballerinax/microsoft.sheets1 as sheets;

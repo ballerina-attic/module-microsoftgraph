@@ -39,7 +39,7 @@ TABLE_NAME=""
 
 **Example Code**
 Creating a `microsoft.onedrive1:OneDriveClient` by giving the HTTP client config details. The module `microsoft.onedrive1`
-is referred as an alias `onedrive`.
+is referred as the module prefix `onedrive`.
 
 ```
     import ballerinax/microsoft.onedrive1 as onedrive;
