@@ -10,7 +10,7 @@ The `ballerinax/microsoft.sheets1` module contains operations to perform CRUD (C
 
 **OneDrive Operations**
 Microsoft OneDrive is a file hosting service and synchronization service run by Microsoft. It is operated as part of Microsoft Office 365.
-The `ballerinax/msonedrive` module contains operations for accessing the items stored in OneDrive.
+The `ballerinax/microsoft.onedrive1` module contains operations for accessing the items stored in OneDrive.
 
 ## Compatibility
 |                     |    Version     |
